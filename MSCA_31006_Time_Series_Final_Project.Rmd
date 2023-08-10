@@ -1,6 +1,6 @@
 ---
 title: 'MSCA 31006: Final Project - AQI Forecasting'
-author: "Aashish Singh"
+author: "Aashish Singh, Jacob Brewer, Nikitha Gopal, Sydney Peters"
 date: "8/10/2023"
 output: html_document
 ---
