@@ -1,0 +1,120 @@
+---
+title: 'MSCA 31006: Final Project - AQI Forecasting'
+author: "Aashish Singh"
+date: "8/10/2023"
+output: html_document
+---
+
+```{r, tidy=TRUE}
+#install.packages(c("forecast", "expsmooth", "seasonal")) 
+library(TTR)
+library(forecast) 
+library(tseries) 
+library(expsmooth) 
+library(fpp2)
+library(seasonal)
+library(MASS)
+library(TSA)
+library(forecast)
+library(ggplot2)
+library(tseries)
+library(imputeTS)
+library(vars)
+library(timetk)
+library(Metrics)
+library(lmtest)
+library(lubridate)
+library(xts)
+library(dplyr)
+```
+
+#### Step 1: Load data and plot the time series
+
+```{r, tidy=TRUE}
+path <- "/Users/aashishsingh/Desktop/Time Series - Final Project/"
+fresno_pm2_5 <- read.csv(paste0(path, "fresno_pm2_5_pollutant_data.csv"), 
+                         na.strings=c("", "NA"))
+fresno_ozone <- read.csv(paste0(path, "fresno_ozone_pollutant_data.csv"), 
+                         na.strings=c("", "NA"))
+
+# Convert data into ts objects
+fresno_pm2_5_ts <- ts(fresno_pm2_5$PM2.5.AQI.Value, start = c(1999,1,1), frequency = 365.25)
+fresno_ozone_ts <- ts(fresno_ozone$Ozone.AQI.Value, start = c(1999,1,1), frequency = 365.25)
+
+plot(fresno_pm2_5_ts, main="Fresno PM 2.5 AQI")
+plot(fresno_ozone_ts, main="Fresno Ozone AQI")
+```
+
+#### Step 2: Check if data is stationary (KPSS/ADF Test)
+
+```{r, tidy=TRUE}
+
+kpss.test(fresno_pm2_5_ts)
+# The reported p-value is 0.01, which is smaller than 0.05, and would suggest 
+# that we reject the null hypothesis of level stationarity and conclude that 
+# there is evidence that the data is non-stationary
+
+adf.test(fresno_pm2_5_ts)
+# Similarly the Augumented Dickey-Fuller test results in p-value of 0.01 (<0.05) 
+# where we do reject the null hypothesis that the time series is non-stationary
+# and thus data is stationary.
+
+# These are opposite results so we use ACF PACF plots to see if the series is stationary
+acf(fresno_pm2_5_ts, main = "ACF of Original Time Series")
+pacf(fresno_pm2_5_ts, main = "PACF of Original Time Series")
+
+```
+
+#### Step 3: Extract weekly values for time series and plot the series 
+
+```{r, tidy=TRUE}
+# Create weekly data
+fresno_pm2_5_df <- as.data.frame(fresno_pm2_5_ts)
+fresno_pm2_5_df$Date <- mdy(fresno_pm2_5$Date)
+colnames(fresno_pm2_5_df) <- c("PM2.5.AQI.Value", "Date")
+
+fresno_pm2_5_xts <- as.xts(fresno_pm2_5_df, order.by=fresno_pm2_5_df$Date)
+fresno_pm2_5_xts <- fresno_pm2_5_xts[,-2]
+fresno_pm2_5_weekly <- apply.weekly(fresno_pm2_5_xts, mean)
+
+fresno_pm2_5_weekly_ts <- ts(fresno_pm2_5_weekly["19990103/20230805"], start = c(1999,1),frequency = 52.18)
+plot(fresno_pm2_5_weekly_ts)
+
+kpss.test(fresno_pm2_5_weekly_ts)
+
+adf.test(fresno_pm2_5_weekly_ts)
+
+shapiro.test(fresno_pm2_5_weekly_ts)
+
+lambda <- BoxCox.lambda(fresno_pm2_5_weekly_ts)
+
+ts.plot(BoxCox(fresno_pm2_5_weekly_ts, lambda), main="Box-Cox Transformed PM 2.5 AQI")
+
+fresno_pm2_5_weekly_ts_transformed <- BoxCox(fresno_pm2_5_weekly_ts, lambda)
+
+kpss.test(fresno_pm2_5_weekly_ts_transformed)
+
+adf.test(fresno_pm2_5_weekly_ts_transformed)
+
+acf(fresno_pm2_5_weekly_ts_transformed, main = "ACF of Box-Cox Transformed Time Series")
+pacf(fresno_pm2_5_weekly_ts_transformed, main = "PACF of Box-Cox Transformed Time Series")
+
+```
+
+#### Step 4: Extract monthly values for time series and plot the series 
+
+```{r, tidy=TRUE}
+# Create monthly data
+fresno_pm2_5_monthly <- apply.monthly(fresno_pm2_5_xts, mean)
+
+fresno_pm2_5_monthly_ts <- ts(fresno_pm2_5_monthly["19990130/20230805"], start = c(1999,1), frequency = 12)
+plot(fresno_pm2_5_monthly_ts)
+
+kpss.test(fresno_pm2_5_monthly_ts)
+
+adf.test(fresno_pm2_5_monthly_ts)
+
+acf(fresno_pm2_5_monthly_ts, main = "ACF of Monthly Time Series")
+pacf(fresno_pm2_5_monthly_ts, main = "PACF of Monthly Time Series")
+```
+
