@@ -84,21 +84,6 @@ kpss.test(fresno_pm2_5_weekly_ts)
 
 adf.test(fresno_pm2_5_weekly_ts)
 
-shapiro.test(fresno_pm2_5_weekly_ts)
-
-lambda <- BoxCox.lambda(fresno_pm2_5_weekly_ts)
-
-ts.plot(BoxCox(fresno_pm2_5_weekly_ts, lambda), main="Box-Cox Transformed PM 2.5 AQI")
-
-fresno_pm2_5_weekly_ts_transformed <- BoxCox(fresno_pm2_5_weekly_ts, lambda)
-
-kpss.test(fresno_pm2_5_weekly_ts_transformed)
-
-adf.test(fresno_pm2_5_weekly_ts_transformed)
-
-acf(fresno_pm2_5_weekly_ts_transformed, main = "ACF of Box-Cox Transformed Time Series")
-pacf(fresno_pm2_5_weekly_ts_transformed, main = "PACF of Box-Cox Transformed Time Series")
-
 ```
 
 #### Step 4: Extract monthly values for time series and plot the series 
@@ -118,3 +103,44 @@ acf(fresno_pm2_5_monthly_ts, main = "ACF of Monthly Time Series")
 pacf(fresno_pm2_5_monthly_ts, main = "PACF of Monthly Time Series")
 ```
 
+#### Step 5: Look at ACF / PACF plots
+
+```{r, tidy=TRUE}
+acf(fresno_pm2_5_weekly_ts, main = "ACF of  Time Series")
+pacf(fresno_pm2_5_weekly_ts, main = "PACF of Time Series")
+
+
+lambda <- BoxCox.lambda(fresno_pm2_5_weekly_ts)
+
+ts.plot(BoxCox(fresno_pm2_5_weekly_ts, lambda), main="Box-Cox Transformed PM 2.5 AQI")
+
+fresno_pm2_5_weekly_ts_transformed <- BoxCox(fresno_pm2_5_weekly_ts, lambda)
+
+kpss.test(fresno_pm2_5_weekly_ts_transformed)
+
+adf.test(fresno_pm2_5_weekly_ts_transformed)
+
+acf(fresno_pm2_5_weekly_ts_transformed, main = "ACF of Box-Cox Transformed Time Series")
+pacf(fresno_pm2_5_weekly_ts_transformed, main = "PACF of Box-Cox Transformed Time Series")
+
+plot(decompose(fresno_pm2_5_weekly_ts_transformed,type="additive"))
+
+```
+
+#### Step 5: Understand the composition of the time series data
+```{r, tidy=TRUE}
+
+#differencing data
+# this can help stablise mean of time series by removing chnges in the level of a time series
+
+fresno_pm2_5_weekly_ts_diff<- diff(fresno_pm2_5_weekly_ts)
+plot(fresno_pm2_5_weekly_ts_diff)
+
+acf(fresno_pm2_5_weekly_ts_diff, main = "ACF of differenced Time Series")
+pacf(fresno_pm2_5_weekly_ts_diff, main = "PACF of differenced Time Series")
+
+
+decomp <- decompose(fresno_pm2_5_weekly_ts, type="additive")
+plot(decomp)
+
+```
