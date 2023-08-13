@@ -67,60 +67,22 @@ acf(pm2_5_ts, main = "ACF of Original Time Series")
 pacf(pm2_5_ts, main = "PACF of Original Time Series")
 
 ```
-
-#### Step 3: Extract weekly values for time series and plot the series 
+#### Step 3: Prepare data for Weekly & Monthly extraction and EDA
 
 ```{r, tidy=TRUE}
-# Create weekly data
+# Create data with Dates
 pm2_5_df <- as.data.frame(pm2_5_ts)
 pm2_5_df$Date <- mdy(pm2_5_data$Date)
 colnames(pm2_5_df) <- c("PM2.5.AQI.Value", "Date")
 
-# Convert to xts format for weekly conversion
+# Convert to xts format for weekly & monthly
 pm2_5_xts <- as.xts(pm2_5_df, order.by=pm2_5_df$Date)
 pm2_5_xts <- pm2_5_xts[,-2]
-pm2_5_weekly <- apply.weekly(pm2_5_xts, mean)
-#pm2_5_weekly
-
-pm2_5_weekly_ts <- ts(pm2_5_weekly["19990103/20230811"], start = c(1999,1),frequency = 52.18)
-plot(pm2_5_weekly_ts)
-
-kpss.test(pm2_5_weekly_ts)
-
-adf.test(pm2_5_weekly_ts)
-
-acf(pm2_5_weekly_ts, main = "ACF of Weekly Time Series")
-pacf(pm2_5_weekly_ts, main = "PACF of Weekly Time Series")
-
 ```
 
-#### Step 4: Extract monthly values for time series and plot the series 
+#### Step 4: Understand PM2.5 AQI variance across years
 
 ```{r, tidy=TRUE}
-# Create monthly data
-pm2_5_monthly <- apply.monthly(pm2_5_xts, mean)
-#pm2_5_monthly
-
-pm2_5_monthly_ts <- ts(pm2_5_monthly["19990131/20230811"], start = c(1999,1), frequency = 12)
-plot(pm2_5_monthly_ts)
-
-kpss.test(pm2_5_monthly_ts)
-
-adf.test(pm2_5_monthly_ts)
-
-acf(pm2_5_monthly_ts, main = "ACF of Monthly Time Series")
-pacf(pm2_5_monthly_ts, main = "PACF of Monthly Time Series")
-
-```
-
-#### Step 5: Understand time series variance
-
-```{r, tidy=TRUE}
-
-plot(pm2_5_weekly_ts)
-
-# Strong seasonality, Strong cyclic, light downward trend, variance is reducing
-
 # Let's see how seasonality looks over time and is the variance changing
 pm2_5_df$Month <- month(pm2_5_df$Date)
 pm2_5_df$Year <- year(pm2_5_df$Date)
@@ -176,25 +138,40 @@ boxplot(reshape_avg_aqi_by_month_year[2:26])
 # We can see that over the years there is downward trend and variance is decreasing
 # except 2020 when we see a high peak likely caused by wildfires
 # Link: https://en.wikipedia.org/wiki/Lake_Fire_(2020)
+```
+
+#### Step 5a: Extract values for time series and plot the series - Weekly
+
+```{r, tidy=TRUE}
+pm2_5_weekly <- apply.weekly(pm2_5_xts, mean)
+pm2_5_weekly_ts <- ts(pm2_5_weekly["19990103/20230811"], 
+                      start = c(1999,1),
+                      frequency = 52.18)
+plot(pm2_5_weekly_ts)
+# Strong seasonality, Strong cyclic, light downward trend, variance is reducing
+
+kpss.test(pm2_5_weekly_ts)
+
+adf.test(pm2_5_weekly_ts)
+
+acf(pm2_5_weekly_ts, main = "ACF of Weekly Time Series")
+pacf(pm2_5_weekly_ts, main = "PACF of Weekly Time Series")
 
 ```
 
-#### Step 6: Split data into train and test - Weekly
+#### Step 6a: Split data into train and test - Weekly
 
 ```{r, tidy=TRUE}
-
 # Split the data into a training and test dataset
-train <- window(pm2_5_weekly_ts, start = c(1999,1), end=c(2020,52))
-test <- window(pm2_5_weekly_ts, start = c(2021,1), end=c(2023,7))
-
+train_weekly <- window(pm2_5_weekly_ts, start = c(1999,1), end=c(2020,52))
+test_weekly <- window(pm2_5_weekly_ts, start = c(2021,1))
 ```
 
-#### Step 7: Decompose the time series plot - Weekly
+#### Step 7a: Decompose the time series plot - Weekly
 
 ```{r, tidy=TRUE}
-
 # Looking at spectral analysis
-periodogram(train, log = "no", plot=TRUE, 
+periodogram(train_weekly, log = "no", plot=TRUE, 
             ylab = "Periodogram",
             xlab = "Frequency",
             lwd=2, xlim = c(0, 0.06))
@@ -207,7 +184,7 @@ periodogram(train, log = "no", plot=TRUE,
 # Overall, there is no mixed effect that normal seasonality model cannot capture.
 
 # Decompose the series
-plot(decompose(train, type="multiplicative"))
+plot(decompose(train_weekly, type="multiplicative"))
 
 # Important Inferences
 # 1) The PM2.5 AQI has been decreasing overall though there are rise every now and then.
@@ -222,56 +199,77 @@ plot(decompose(train, type="multiplicative"))
 
 
 # Understand the seasonality and remove it to see the trend
-train_diff <- diff(train, lag = 52)
-autoplot(train_diff, ylab="Train Seasonal Differencing")
+train_weekly_diff <- diff(train_weekly, lag = 52)
+autoplot(train_weekly_diff, ylab="Train Seasonal Differencing - Weekly Data")
 
 # Let's look if the series is stationary?
-kpss.test(train_diff)
+kpss.test(train_weekly_diff)
 # The reported p-value is 0.1, which is > 0.05, and would suggest that we fail 
 # to reject the null hypothesis of level stationarity (conclusion: stationary)
 
-adf.test(train_diff)
+adf.test(train_weekly_diff)
 # The reported p-value of 0.01 (<0.05) so we do reject the null hypothesis that 
 # the time series is non-stationary (conclusion: stationary)
 
-acf(train_diff, main = "ACF of Seasonal Differencing Time Series")
-pacf(train_diff, main = "PACF of Seasonal Differencing Time Series")
+acf(train_weekly_diff, main = "ACF of Seasonal Differencing Time Series - Weekly Data")
+pacf(train_weekly_diff, main = "PACF of Seasonal Differencing Time Series - Weekly Data")
 
 ```
 
-#### Step 8: Benchmark using snaive model - Weekly
+#### Step 8a: Benchmark using snaive model - Weekly
 
 ```{r, tidy=TRUE}
-
 # Forecast the seasonal naïve for (2021-01 to 2023-07)
-forecast_snaive <- snaive(train, h=110)
+forecast_snaive_weekly <- snaive(train_weekly, h=110)
 # Plot the forecasts for snaive model
-plot(forecast_snaive, main = "PM 2.5 AQI Forecast - SNaive",
+plot(forecast_snaive_weekly, main = "PM 2.5 AQI Forecast - SNaive (Weekly)",
          xlab = "Week", ylab = "PM 2.5 AQI")
-lines(test)
+lines(test_weekly)
 
 # Compare the forecast with the actual test data by calculating MAPE and MSE
 # Mean Absolute Percentage Error (MAPE)
-mape_snaive <- mean(abs((test - forecast_snaive$mean)/test))
-mape_snaive
+mape_snaive_weekly <- mean(abs((test_weekly - forecast_snaive_weekly$mean)/test_weekly))
+mape_snaive_weekly
+
+# Mean Absolute Error (MAE)
+mae_snaive_weekly <- mean(abs((test_weekly - forecast_snaive_weekly$mean)))
+mae_snaive_weekly
 
 # Mean Squared Error (MSE)
-mse_snaive <- mean((test - forecast_snaive$mean)^2)
-mse_snaive
+mse_snaive_weekly <- mean((test_weekly - forecast_snaive_weekly$mean)^2)
+mse_snaive_weekly
+
+# Evaluate the residuals
+checkresiduals(forecast_snaive_weekly)
 
 ```
-
-#### Step 9: Split data into train and test - Monthly
+#### Step 5b: Extract values for time series and plot the series - Monthly
 
 ```{r, tidy=TRUE}
+# Create monthly data
+pm2_5_monthly <- apply.monthly(pm2_5_xts, mean)
 
-# Split the data into a training and test dataset
-train_monthly <- window(pm2_5_monthly_ts, start = c(1999,1), end=c(2020,12))
-test_monthly <- window(pm2_5_monthly_ts, start = c(2021,1), end=c(2023,7))
+pm2_5_monthly_ts <- ts(pm2_5_monthly["19990131/20230811"], start = c(1999,1), frequency = 12)
+plot(pm2_5_monthly_ts)
+
+kpss.test(pm2_5_monthly_ts)
+
+adf.test(pm2_5_monthly_ts)
+
+acf(pm2_5_monthly_ts, main = "ACF of Monthly Time Series")
+pacf(pm2_5_monthly_ts, main = "PACF of Monthly Time Series")
 
 ```
 
-#### Step 10: Decompose the time series plot - Monthly
+#### Step 6b: Split data into train and test - Monthly
+
+```{r, tidy=TRUE}
+# Split the data into a training and test dataset
+train_monthly <- window(pm2_5_monthly_ts, start = c(1999,1), end=c(2020,12))
+test_monthly <- window(pm2_5_monthly_ts, start = c(2021,1))
+```
+
+#### Step 7b: Decompose the time series plot - Monthly
 
 ```{r, tidy=TRUE}
 
@@ -302,7 +300,6 @@ plot(decompose(train_monthly, type="multiplicative"))
 #    with a increasing trend in the beginning of the year and drops down towards 
 #    the end of the year. We can see a seasonal effect with a cycle of 12 months.
 
-
 # Understand the seasonality and remove it to see the trend
 train_monthly_diff <- diff(train_monthly, lag = 12)
 autoplot(train_monthly_diff, ylab="Train Seasonal Differencing (Monthly)")
@@ -321,7 +318,7 @@ pacf(train_monthly_diff, main = "PACF of Seasonal Differencing Time Series")
 
 ```
 
-#### Step 11: Benchmark using snaive model - Monthly
+#### Step 8b: Benchmark using snaive model - Monthly
 
 ```{r, tidy=TRUE}
 
@@ -341,4 +338,8 @@ mape_snaive
 mse_snaive <- mean((test_monthly - forecast_snaive_monthly$mean)^2)
 mse_snaive
 
+# Evaluate the residuals
+checkresiduals(forecast_snaive_monthly)
+
 ```
+
