@@ -14,6 +14,7 @@ library(expsmooth)
 library(fpp2)
 library(seasonal)
 library(MASS)
+library(stats)
 library(TSA)
 library(forecast)
 library(ggplot2)
@@ -26,42 +27,44 @@ library(lmtest)
 library(lubridate)
 library(xts)
 library(dplyr)
+library(tidyr)
+library(sqldf)
 ```
 
 #### Step 1: Load data and plot the time series
 
 ```{r, tidy=TRUE}
 path <- "/Users/aashishsingh/Desktop/Time Series - Final Project/"
-fresno_pm2_5 <- read.csv(paste0(path, "fresno_pm2_5_pollutant_data.csv"), 
-                         na.strings=c("", "NA"))
-fresno_ozone <- read.csv(paste0(path, "fresno_ozone_pollutant_data.csv"), 
-                         na.strings=c("", "NA"))
+pm2_5_data <- read.csv(paste0(path, "la_pm2_5_pollutant_data.csv"), 
+                     na.strings=c("", "NA"))
+ozone_data <- read.csv(paste0(path, "la_ozone_pollutant_data.csv"), 
+                     na.strings=c("", "NA"))
 
 # Convert data into ts objects
-fresno_pm2_5_ts <- ts(fresno_pm2_5$PM2.5.AQI.Value, start = c(1999,1,1), frequency = 365.25)
-fresno_ozone_ts <- ts(fresno_ozone$Ozone.AQI.Value, start = c(1999,1,1), frequency = 365.25)
+pm2_5_ts <- ts(pm2_5_data$PM2.5.AQI.Value, start = c(1999,1,1), frequency = 365.25)
+ozone_ts <- ts(ozone_data$Ozone.AQI.Value, start = c(1999,1,1), frequency = 365.25)
 
-plot(fresno_pm2_5_ts, main="Fresno PM 2.5 AQI")
-plot(fresno_ozone_ts, main="Fresno Ozone AQI")
+plot(pm2_5_ts, main="Los Angeles PM 2.5 AQI")
+plot(ozone_ts, main="Los Angeles Ozone AQI")
 ```
 
 #### Step 2: Check if data is stationary (KPSS/ADF Test)
 
 ```{r, tidy=TRUE}
 
-kpss.test(fresno_pm2_5_ts)
+kpss.test(pm2_5_ts)
 # The reported p-value is 0.01, which is smaller than 0.05, and would suggest 
 # that we reject the null hypothesis of level stationarity and conclude that 
 # there is evidence that the data is non-stationary
 
-adf.test(fresno_pm2_5_ts)
+adf.test(pm2_5_ts)
 # Similarly the Augumented Dickey-Fuller test results in p-value of 0.01 (<0.05) 
 # where we do reject the null hypothesis that the time series is non-stationary
 # and thus data is stationary.
 
 # These are opposite results so we use ACF PACF plots to see if the series is stationary
-acf(fresno_pm2_5_ts, main = "ACF of Original Time Series")
-pacf(fresno_pm2_5_ts, main = "PACF of Original Time Series")
+acf(pm2_5_ts, main = "ACF of Original Time Series")
+pacf(pm2_5_ts, main = "PACF of Original Time Series")
 
 ```
 
@@ -69,20 +72,25 @@ pacf(fresno_pm2_5_ts, main = "PACF of Original Time Series")
 
 ```{r, tidy=TRUE}
 # Create weekly data
-fresno_pm2_5_df <- as.data.frame(fresno_pm2_5_ts)
-fresno_pm2_5_df$Date <- mdy(fresno_pm2_5$Date)
-colnames(fresno_pm2_5_df) <- c("PM2.5.AQI.Value", "Date")
+pm2_5_df <- as.data.frame(pm2_5_ts)
+pm2_5_df$Date <- mdy(pm2_5_data$Date)
+colnames(pm2_5_df) <- c("PM2.5.AQI.Value", "Date")
 
-fresno_pm2_5_xts <- as.xts(fresno_pm2_5_df, order.by=fresno_pm2_5_df$Date)
-fresno_pm2_5_xts <- fresno_pm2_5_xts[,-2]
-fresno_pm2_5_weekly <- apply.weekly(fresno_pm2_5_xts, mean)
+# Convert to xts format for weekly conversion
+pm2_5_xts <- as.xts(pm2_5_df, order.by=pm2_5_df$Date)
+pm2_5_xts <- pm2_5_xts[,-2]
+pm2_5_weekly <- apply.weekly(pm2_5_xts, mean)
+#pm2_5_weekly
 
-fresno_pm2_5_weekly_ts <- ts(fresno_pm2_5_weekly["19990103/20230805"], start = c(1999,1),frequency = 52.18)
-plot(fresno_pm2_5_weekly_ts)
+pm2_5_weekly_ts <- ts(pm2_5_weekly["19990103/20230811"], start = c(1999,1),frequency = 52.18)
+plot(pm2_5_weekly_ts)
 
-kpss.test(fresno_pm2_5_weekly_ts)
+kpss.test(pm2_5_weekly_ts)
 
-adf.test(fresno_pm2_5_weekly_ts)
+adf.test(pm2_5_weekly_ts)
+
+acf(pm2_5_monthly_ts, main = "ACF of Weekly Time Series")
+pacf(pm2_5_monthly_ts, main = "PACF of Weekly Time Series")
 
 ```
 
@@ -90,57 +98,167 @@ adf.test(fresno_pm2_5_weekly_ts)
 
 ```{r, tidy=TRUE}
 # Create monthly data
-fresno_pm2_5_monthly <- apply.monthly(fresno_pm2_5_xts, mean)
+pm2_5_monthly <- apply.monthly(pm2_5_xts, mean)
+#pm2_5_monthly
 
-fresno_pm2_5_monthly_ts <- ts(fresno_pm2_5_monthly["19990130/20230805"], start = c(1999,1), frequency = 12)
-plot(fresno_pm2_5_monthly_ts)
+pm2_5_monthly_ts <- ts(pm2_5_monthly["19990131/20230811"], start = c(1999,1), frequency = 12)
+plot(pm2_5_monthly_ts)
 
-kpss.test(fresno_pm2_5_monthly_ts)
+kpss.test(pm2_5_monthly_ts)
 
-adf.test(fresno_pm2_5_monthly_ts)
+adf.test(pm2_5_monthly_ts)
 
-acf(fresno_pm2_5_monthly_ts, main = "ACF of Monthly Time Series")
-pacf(fresno_pm2_5_monthly_ts, main = "PACF of Monthly Time Series")
+acf(pm2_5_monthly_ts, main = "ACF of Monthly Time Series")
+pacf(pm2_5_monthly_ts, main = "PACF of Monthly Time Series")
+
 ```
 
-#### Step 5: Look at ACF / PACF plots
+#### Step 5: Understand time series variance
 
 ```{r, tidy=TRUE}
-acf(fresno_pm2_5_weekly_ts, main = "ACF of  Time Series")
-pacf(fresno_pm2_5_weekly_ts, main = "PACF of Time Series")
 
+plot(pm2_5_weekly_ts)
 
-lambda <- BoxCox.lambda(fresno_pm2_5_weekly_ts)
+# Strong seasonality, Strong cyclic, light downward trend, variance is reducing
 
-ts.plot(BoxCox(fresno_pm2_5_weekly_ts, lambda), main="Box-Cox Transformed PM 2.5 AQI")
+# Let's see how seasonality looks over time and is the variance changing
+pm2_5_df$Month <- month(pm2_5_df$Date)
+pm2_5_df$Year <- year(pm2_5_df$Date)
 
-fresno_pm2_5_weekly_ts_transformed <- BoxCox(fresno_pm2_5_weekly_ts, lambda)
+avg_aqi_by_month_year <- pm2_5_df %>%
+  group_by(pm2_5_df$Year, pm2_5_df$Month) %>%
+  summarise(
+    avg_value = mean(PM2.5.AQI.Value)
+  )
+colnames(avg_aqi_by_month_year) <- c("Year", "Month", "avg_value")
 
-kpss.test(fresno_pm2_5_weekly_ts_transformed)
+reshape_avg_aqi_by_month_year <- 
+  sqldf(
+    "SELECT 
+      Month,
+      MAX(CASE WHEN Year = 1999 THEN avg_value END) AS Year_1999,
+      MAX(CASE WHEN Year = 2000 THEN avg_value END) AS Year_2000,
+      MAX(CASE WHEN Year = 2001 THEN avg_value END) AS Year_2001,
+      MAX(CASE WHEN Year = 2002 THEN avg_value END) AS Year_2002,
+      MAX(CASE WHEN Year = 2003 THEN avg_value END) AS Year_2003,
+      MAX(CASE WHEN Year = 2004 THEN avg_value END) AS Year_2004,
+      MAX(CASE WHEN Year = 2005 THEN avg_value END) AS Year_2005,
+      MAX(CASE WHEN Year = 2006 THEN avg_value END) AS Year_2006,
+      MAX(CASE WHEN Year = 2007 THEN avg_value END) AS Year_2007,
+      MAX(CASE WHEN Year = 2008 THEN avg_value END) AS Year_2008,
+      MAX(CASE WHEN Year = 2009 THEN avg_value END) AS Year_2009,
+      MAX(CASE WHEN Year = 2010 THEN avg_value END) AS Year_2010,
+      MAX(CASE WHEN Year = 2011 THEN avg_value END) AS Year_2011,
+      MAX(CASE WHEN Year = 2012 THEN avg_value END) AS Year_2012,
+      MAX(CASE WHEN Year = 2013 THEN avg_value END) AS Year_2013,
+      MAX(CASE WHEN Year = 2014 THEN avg_value END) AS Year_2014,
+      MAX(CASE WHEN Year = 2015 THEN avg_value END) AS Year_2015,
+      MAX(CASE WHEN Year = 2016 THEN avg_value END) AS Year_2016,
+      MAX(CASE WHEN Year = 2017 THEN avg_value END) AS Year_2017,
+      MAX(CASE WHEN Year = 2018 THEN avg_value END) AS Year_2018,
+      MAX(CASE WHEN Year = 2019 THEN avg_value END) AS Year_2019,
+      MAX(CASE WHEN Year = 2020 THEN avg_value END) AS Year_2020,
+      MAX(CASE WHEN Year = 2021 THEN avg_value END) AS Year_2021,
+      MAX(CASE WHEN Year = 2022 THEN avg_value END) AS Year_2022,
+      MAX(CASE WHEN Year = 2023 THEN avg_value END) AS Year_2023
+    FROM avg_aqi_by_month_year
+    GROUP BY Month
+    ORDER BY Month"
+  )
 
-adf.test(fresno_pm2_5_weekly_ts_transformed)
+colnames(reshape_avg_aqi_by_month_year) <- c(
+  "Month", "1999", "2000", "2001", "2002", "2003", "2004", "2005", "2006", 
+  "2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014", "2015", 
+  "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023")
 
-acf(fresno_pm2_5_weekly_ts_transformed, main = "ACF of Box-Cox Transformed Time Series")
-pacf(fresno_pm2_5_weekly_ts_transformed, main = "PACF of Box-Cox Transformed Time Series")
+boxplot(reshape_avg_aqi_by_month_year[2:26])
 
-plot(decompose(fresno_pm2_5_weekly_ts_transformed,type="additive"))
+# We can see that over the years there is downward trend and variance is decreasing
+# except 2020 when we see a high peak likely caused by wildfires
+# Link: https://en.wikipedia.org/wiki/Lake_Fire_(2020)
 
 ```
 
-#### Step 5: Understand the composition of the time series data
+#### Step 6: Split data into train and test
+
 ```{r, tidy=TRUE}
 
-#differencing data
-# this can help stablise mean of time series by removing chnges in the level of a time series
-
-fresno_pm2_5_weekly_ts_diff<- diff(fresno_pm2_5_weekly_ts)
-plot(fresno_pm2_5_weekly_ts_diff)
-
-acf(fresno_pm2_5_weekly_ts_diff, main = "ACF of differenced Time Series")
-pacf(fresno_pm2_5_weekly_ts_diff, main = "PACF of differenced Time Series")
-
-
-decomp <- decompose(fresno_pm2_5_weekly_ts, type="additive")
-plot(decomp)
+# Split the data into a training and test dataset
+train <- window(pm2_5_weekly_ts, start = c(1999,1), end=c(2020,52))
+test <- window(pm2_5_weekly_ts, start = c(2021,1), end=c(2023,6))
 
 ```
+
+#### Step 7: Decompose the weekly plot
+
+```{r, tidy=TRUE}
+
+# Looking at spectral analysis
+periodogram(train, log = "no", plot=TRUE, 
+            ylab = "Periodogram",
+            xlab = "Frequency",
+            lwd=2, xlim = c(0, 0.06))
+
+# There are two trends: 
+#  1) A typical yearly (52 weeks) seasonal trend
+#  2) A trend that is repeating every 9.6 years (500 weeks)
+#  3) A typical half yearly (26 weeks) seasonal trend
+
+# Overall, there is no mixed strong trend that normal seasonality model cannot
+# capture.
+
+# Decompose the series
+plot(decompose(train, type="multiplicative"))
+
+# Important Inferences
+# 1) The PM2.5 AQI has been decreasing overall though there are rise every now and then.
+#    However the trend is going down with time.
+# 2) Winter months have a strong seasonal effect with Nov and Dec being the peak months
+#    usually which likely could be due to cold temperatures causing pollutant to
+#    not escape the lower atmosphere.
+#    Link: https://www.accuweather.com/en/health-wellness/why-air-pollution-is-worse-in-winter/689434#:~:text=Cold%20air%20is%20denser%20and%20moves%20slower%20than%20warm%20air,rate%20than%20during%20the%20summer.
+# 3) We can see a seasonal cycle of 12 months where the mean value of each month starts 
+#    with a increasing trend in the beginning of the year and drops down towards 
+#    the end of the year. We can see a seasonal effect with a cycle of 12 months.
+
+
+# Understand the seasonality and remove it to see the trend
+train_diff <- diff(train, lag = 52)
+autoplot(train_diff, ylab="Train Seasonal Differencing")
+
+# Let's look if the series is stationary?
+kpss.test(train_diff)
+# The reported p-value is 0.1, which is > 0.05, and would suggest that we fail 
+# to reject the null hypothesis of level stationarity (conclusion: stationary)
+
+adf.test(train_diff)
+# The reported p-value of 0.01 (<0.05) so we do reject the null hypothesis that 
+# the time series is non-stationary (conclusion: stationary)
+
+acf(train_diff, main = "ACF of Seasonal Differencing Time Series")
+pacf(train_diff, main = "PACF of Seasonal Differencing Time Series")
+
+```
+
+#### Step 6: Benchmark using snaive model
+
+```{r, tidy=TRUE}
+
+# Forecast the seasonal naïve for each month of 1980
+forecast_snaive <- snaive(train, h=110)
+# Plot the forecasts for snaive model
+plot(forecast_snaive, main = "PM 2.5 AQI Forecast - SNaive",
+         xlab = "Week", ylab = "PM 2.5 AQI")
+lines(test)
+
+# Compare the forecast with the actual test data by calculating MAPE and MSE
+# Mean Absolute Percentage Error (MAPE)
+mape_snaive <- mean(abs((test - forecast_snaive$mean)/test))
+mape_snaive
+
+# Mean Squared Error (MSE)
+mse_snaive <- mean((test - forecast_snaive$mean)^2)
+mse_snaive
+
+```
+
