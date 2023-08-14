@@ -244,6 +244,39 @@ checkresiduals(forecast_snaive_weekly)
 
 ```
 
+#### Step 9a: Forecast using ETS - Weekly
+
+```{r, tidy=TRUE}
+# Build the exponential smoothing model
+model_ets_weekly <- ets(train_weekly, lambda="auto", additive.only=TRUE)
+summary(model_ets_weekly)
+forecast_ets_weekly <- forecast(model_ets_weekly, h=110)
+
+# Plot the forecasts for ETS model
+plot(forecast_ets_weekly, main = "PM 2.5 AQI Forecast - ETS",
+         xlab = "Month", ylab = "PM 2.5 AQI")
+lines(test_weekly)
+
+# Compare the forecast with the actual test data by calculating MAPE and MSE
+# Mean Absolute Percentage Error (MAPE)
+mape_ets_weekly <- mean(abs((test_weekly - forecast_ets_weekly$mean)/test_weekly))
+mape_ets_weekly
+
+# Mean Absolute Error (MAE)
+mae_ets_weekly <- mean(abs((test_weekly - forecast_ets_weekly$mean)))
+mae_ets_weekly
+
+# Mean Squared Error (MSE)
+mse_ets_weekly <- mean((test_weekly - forecast_ets_weekly$mean)^2)
+mse_ets_weekly
+
+# Evaluate the residuals
+checkresiduals(forecast_ets_weekly)
+
+Box.test(residuals(forecast_ets_weekly), lag = 52, type = "Ljung-Box")
+
+```
+
 #### Step 10a: Forecast using Neural Network - Monthly
 
 ```{r, tidy=TRUE}
