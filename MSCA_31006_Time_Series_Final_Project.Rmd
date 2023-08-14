@@ -243,6 +243,44 @@ mse_snaive_weekly
 checkresiduals(forecast_snaive_weekly)
 
 ```
+
+#### Step 10a: Forecast using Neural Network - Monthly
+
+```{r, tidy=TRUE}
+
+model_nn_weekly <- nnetar(train_weekly,
+                           size=5, 
+                           decay=0.5,
+                           repeats=1000, 
+                           lambda="auto")
+summary(model_nn_weekly)
+forecast_nn_weekly <- forecast(model_nn_weekly, PI=FALSE, h=110)
+
+# Plot the forecasts for NN model
+plot(forecast_nn_weekly, main = "PM 2.5 AQI Forecast - Neural Network",
+         xlab = "Weekly", ylab = "PM 2.5 AQI")
+lines(test_weekly)
+
+# Compare the forecast with the actual test data by calculating MAPE and MSE
+# Mean Absolute Percentage Error (MAPE)
+mape_nn_weekly <- mean(abs((test_weekly - forecast_nn_weekly$mean)/test_weekly))
+mape_nn_weekly
+
+# Mean Absolute Error (MAE)
+mae_nn_weekly <- mean(abs((test_weekly - forecast_nn_weekly$mean)))
+mae_nn_weekly
+
+# Mean Squared Error (MSE)
+mse_nn_weekly <- mean((test_weekly - forecast_nn_weekly$mean)^2)
+mse_nn_weekly
+
+# Evaluate the residuals
+checkresiduals(forecast_nn_weekly)
+```
+
+
+
+
 #### Step 5b: Extract values for time series and plot the series - Monthly
 
 ```{r, tidy=TRUE}
@@ -326,20 +364,91 @@ pacf(train_monthly_diff, main = "PACF of Seasonal Differencing Time Series")
 forecast_snaive_monthly <- snaive(train_monthly, h=31)
 # Plot the forecasts for snaive model
 plot(forecast_snaive_monthly, main = "PM 2.5 AQI Forecast - SNaive",
-         xlab = "Week", ylab = "PM 2.5 AQI")
+         xlab = "Month", ylab = "PM 2.5 AQI")
 lines(test_monthly)
 
 # Compare the forecast with the actual test data by calculating MAPE and MSE
 # Mean Absolute Percentage Error (MAPE)
-mape_snaive <- mean(abs((test_monthly - forecast_snaive_monthly$mean)/test_monthly))
-mape_snaive
+mape_snaive_monthly <- mean(abs((test_monthly - forecast_snaive_monthly$mean)/test_monthly))
+mape_snaive_monthly
+
+# Mean Absolute Error (MAE)
+mae_snaive_monthly <- mean(abs((test_monthly - forecast_snaive_monthly$mean)))
+mae_snaive_monthly
 
 # Mean Squared Error (MSE)
-mse_snaive <- mean((test_monthly - forecast_snaive_monthly$mean)^2)
-mse_snaive
+mse_snaive_monthly <- mean((test_monthly - forecast_snaive_monthly$mean)^2)
+mse_snaive_monthly
 
 # Evaluate the residuals
 checkresiduals(forecast_snaive_monthly)
 
 ```
 
+#### Step 9b: Forecast using ETS - Monthly
+
+```{r, tidy=TRUE}
+# Build the exponential smoothing model
+model_ets_monthly <- ets(train_monthly, lambda="auto")
+summary(model_ets_monthly)
+forecast_ets_monthly <- forecast(model_ets_monthly, h=31)
+
+# Plot the forecasts for ETS model
+plot(forecast_ets_monthly, main = "PM 2.5 AQI Forecast - ETS",
+         xlab = "Month", ylab = "PM 2.5 AQI")
+lines(test_monthly)
+
+# Compare the forecast with the actual test data by calculating MAPE and MSE
+# Mean Absolute Percentage Error (MAPE)
+mape_ets_monthly <- mean(abs((test_monthly - forecast_ets_monthly$mean)/test_monthly))
+mape_ets_monthly
+
+# Mean Absolute Error (MAE)
+mae_ets_monthly <- mean(abs((test_monthly - forecast_ets_monthly$mean)))
+mae_ets_monthly
+
+# Mean Squared Error (MSE)
+mse_ets_monthly <- mean((test_monthly - forecast_ets_monthly$mean)^2)
+mse_ets_monthly
+
+# Evaluate the residuals
+checkresiduals(forecast_ets_monthly)
+
+Box.test(residuals(forecast_ets_monthly), lag = 12, type = "Ljung-Box")
+
+```
+
+#### Step 10b: Forecast using Neural Network - Monthly
+
+```{r, tidy=TRUE}
+
+model_nn_monthly <- nnetar(train_monthly,
+                           P=12,
+                           size=5, 
+                           decay=0.5,
+                           repeats=1000, 
+                           lambda="auto")
+summary(model_nn_monthly)
+forecast_nn_monthly <- forecast(model_nn_monthly, PI=FALSE, h=31)
+
+# Plot the forecasts for NN model
+plot(forecast_nn_monthly, main = "PM 2.5 AQI Forecast - Neural Network",
+         xlab = "Month", ylab = "PM 2.5 AQI")
+lines(test_monthly)
+
+# Compare the forecast with the actual test data by calculating MAPE and MSE
+# Mean Absolute Percentage Error (MAPE)
+mape_nn_monthly <- mean(abs((test_monthly - forecast_nn_monthly$mean)/test_monthly))
+mape_nn_monthly
+
+# Mean Absolute Error (MAE)
+mae_nn_monthly <- mean(abs((test_monthly - forecast_nn_monthly$mean)))
+mae_nn_monthly
+
+# Mean Squared Error (MSE)
+mse_nn_monthly <- mean((test_monthly - forecast_nn_monthly$mean)^2)
+mse_nn_monthly
+
+# Evaluate the residuals
+checkresiduals(forecast_nn_monthly)
+```
