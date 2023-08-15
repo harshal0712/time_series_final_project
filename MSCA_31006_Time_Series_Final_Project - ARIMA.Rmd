@@ -4,6 +4,13 @@ author: "Aashish Singh, Jacob Brewer, Nikitha Gopal, Sydney Peters"
 date: "8/10/2023"
 output: html_document
 ---
+```{r}
+# List all objects in the environment
+objects_to_remove <- ls()
+
+# Remove all objects
+rm(list = objects_to_remove)
+```
 
 ```{r, tidy=TRUE}
 #install.packages(c("forecast", "expsmooth", "seasonal")) 
@@ -34,17 +41,17 @@ library(sqldf)
 #### Step 1: Load data and plot the time series
 
 ```{r, tidy=TRUE}
-#path <- "/Users/aashishsingh/Desktop/Time Series - Final Project/"
-#pm2_5_data <- read.csv(paste0(path, "la_pm2_5_pollutant_data.csv"), 
-#                     na.strings=c("", "NA"))
-#ozone_data <- read.csv(paste0(path, "la_ozone_pollutant_data.csv"), 
-#                     na.strings=c("", "NA"))
+path <- "/Users/nikithagopal/Desktop/MSCA Data/Time Series Final/"
+pm2_5_data <- read.csv(paste0(path, "la_pm2_5_pollutant_data.csv"), 
+                     na.strings=c("", "NA"))
+ozone_data <- read.csv(paste0(path, "la_ozone_pollutant_data.csv"), 
+                     na.strings=c("", "NA"))
 
-path <- "/Users/sydneypeters/Desktop/"
-pm2_5_data <- read.csv(paste0(path, "pm2.5_LA.csv"), 
-                     na.strings=c("", "NA"))
-ozone_data <- read.csv(paste0(path, "ozone_LA.csv"), 
-                     na.strings=c("", "NA"))
+#path <- "/Users/sydneypeters/Desktop/"
+#pm2_5_data <- read.csv(paste0(path, "pm2.5_LA.csv"), 
+#                     na.strings=c("", "NA"))
+#ozone_data <- read.csv(paste0(path, "ozone_LA.csv"), 
+#                     na.strings=c("", "NA"))
 
 # Convert data into ts objects
 pm2_5_ts <- ts(pm2_5_data$PM2.5.AQI.Value, start = c(1999,1,1), frequency = 365.25)
@@ -249,6 +256,8 @@ mse_snaive_weekly
 checkresiduals(forecast_snaive_weekly)
 
 ```
+
+
 #### Step 5b: Extract values for time series and plot the series - Monthly
 
 ```{r, tidy=TRUE}
@@ -426,32 +435,215 @@ print(comparison_df)
 
 ```
 
-#### ARIMA model using auto.arima() - Weekly
+#### Step 10a: ARIMA model using auto.arima() - Weekly
 ```{r}
-# Convert weekly data to a time series object
-pm2_5_weekly_ts <- ts(pm2_5_weekly["19990103/20230811"], start = c(1999, 1), frequency = 52.18)
+eacf <-
+function (z,ar.max=7,ma.max=13) 
+{
+#
+#  PROGRAMMED BY K.S. CHAN, DEPARTMENT OF STATISTICS AND ACTUARIAL SCIENCE,
+#  UNIVERSITY OF IOWA.
+#
+#  DATE: 4/2001
+#  Compute the extended sample acf (ESACF) for the time series stored in z.
+#  The matrix of ESACF with the AR order up to ar.max and the MA order
+#  up to ma.max is stored in the matrix EACFM.
+#  The default values for NAR and NMA are 7 and 13 respectively.
+#  Side effect of the eacf function:
+#  The function prints a coded ESACF table with
+#  significant values denoted by * and nosignificant values by 0, significance
+#  level being 5%.
+#
+#  Output:
+#   eacf=matrix of esacf
+#   symbol=matrix of coded esacf
+#
 
-# Check stationarity, perform differencing if needed
-kpss_test_result <- kpss.test(pm2_5_weekly_ts)
-adf_test_result <- adf.test(pm2_5_weekly_ts)
-
-if (kpss_test_result$p.value < 0.05 || adf_test_result$p.value < 0.05) {
-  pm2_5_weekly_diff <- diff(pm2_5_weekly_ts)
-} else {
-  pm2_5_weekly_diff <- pm2_5_weekly_ts
+lag1<-function(z,lag=1){c(rep(NA,lag),z[1:(length(z)-lag)])}
+reupm<-function(m1,nrow,ncol){
+k<-ncol-1
+m2<-NULL
+for (i in 1:k){
+i1<-i+1
+work<-lag1(m1[,i])
+work[1]<--1
+temp<-m1[,i1]-work*m1[i1,i1]/m1[i,i]
+temp[i1]<-0
+m2<-cbind(m2,temp)
+}
+m2}
+ceascf<-function(m,cov1,nar,ncol,count,ncov,z,zm){
+result<-0*seq(1,nar+1)
+result[1]<-cov1[ncov+count]
+for (i in 1:nar) {
+temp<-cbind(z[-(1:i)],zm[-(1:i),1:i])%*%c(1,-m[1:i,i])
+result[i+1]<-acf(temp,plot=FALSE,lag.max=count,drop.lag.0=FALSE)$acf[count+1]
+}
+result
 }
 
+ar.max<-ar.max+1
+ma.max<-ma.max+1
+nar<-ar.max-1
+nma<-ma.max
+ncov<-nar+nma+2
+nrow<-nar+nma+1
+ncol<-nrow-1
+z<-z-mean(z)
+zm<-NULL
+for(i in 1:nar) zm<-cbind(zm,lag1(z,lag=i))
+cov1<-acf(z,lag.max=ncov,plot=FALSE,drop.lag.0=FALSE)$acf
+cov1<-c(rev(cov1[-1]),cov1)
+ncov<-ncov+1
+m1<-matrix(0,ncol=ncol,nrow=nrow)
+for(i in 1:ncol) m1[1:i,i]<-
+ar.ols(z,order.max=i,aic=FALSE,demean=FALSE,intercept=FALSE)$ar
+eacfm<-NULL
+for (i in 1:nma) {
+m2<-reupm(m1=m1,nrow=nrow,ncol=ncol)
+ncol<-ncol-1
+eacfm<-cbind(eacfm, ceascf(m2,cov1,nar,ncol,i,ncov,z,zm))
+m1<-m2}
+work<-1:(nar+1)
+work<-length(z)-work+1
+symbol<-NULL
+for ( i in 1:nma) {
+work<-work-1
+symbol<-cbind(symbol,ifelse(abs(eacfm[,i])>2/work^.5, 'x','o'))}
+rownames(symbol)<-0:(ar.max-1)
+colnames(symbol)<-0:(ma.max-1)
+cat('AR/MA\n')
+print(symbol,quote=FALSE)
+invisible(list(eacf=eacfm,ar.max=ar.max,ma.ma=ma.max,symbol=symbol))
+}
+```
+
+```{r}
+eacf(train_weekly)
+# p <- 1,2,3
+# q <- 2,3,4
+```
+
+
+```{r}
+
+kpss_test_result <- kpss.test(train_weekly_diff)
+adf_test_result <- adf.test(train_weekly_diff)
+
+cat("KPSS: ", round(kpss_test_result$p.value, 2), "\n")
+cat("ADF: ", round(adf_test_result$p.value, 2), "\n")
+
 # Fit ARIMA model using auto.arima()
-arima_model_weekly <- auto.arima(pm2_5_weekly_diff)
+# Find appropriate values for d and D using ndiffs and nsdiffs
+# d <- ndiffs(train_weekly_diff)
+# D <- nsdiffs(train_weekly_diff)
+
+# Fit ARIMA model using auto.arima() with seasonal components and previously found d and D
+arima_model_weekly <- auto.arima(train_weekly, seasonal = TRUE, stepwise = FALSE,
+                                 approximation = FALSE, trace = FALSE, lambda = "auto",
+                                 start.p = 1, max.p = 4,
+                                 start.q = 2, max.q = 5, 
+                                 d=0)
+
+# auto.arima(pm2_5_weekly_diff, lambda = "auto", seasonal=TRUE, )
 
 # Forecast using ARIMA model
+h <- length(test_weekly)
 forecast_arima_weekly <- forecast(arima_model_weekly, h = h)
-plot(forecast_arima_weekly)
+
+
+plot(forecast_arima_weekly, main = "PM 2.5 AQI Forecast - sARIMA",
+         xlab = "Week", ylab = "PM 2.5 AQI")
+lines(test_weekly)
+
 ```
+```{r}
+forecast_arima_weekly
+```
+
+```{r}
+
+# Check the residuals of the ARIMA model
+checkresiduals(arima_model_weekly)
+
+
+# Calculate MAE
+mae <- mean(abs(forecast_arima_weekly$mean - test_weekly))
+# Calculate MAPE
+mape <- mean(abs((forecast_arima_weekly$mean - test_weekly) / test_weekly)) * 100
+
+# Get AICc and BIC values from the ARIMA model
+aic <- arima_model_weekly$aic
+bic <- arima_model_weekly$bic
+
+# Corrected AICc calculation
+n <- length(train_weekly)
+k <- length(arima_model_weekly$coef)
+aic_corrected <- aic + 2 * (k + 1) * (k + 2) / (n - k - 2)
+
+# Print the results
+cat("MAE: ", round(mae, 2), "\n")
+cat("MAPE: ", round(mape, 2), "%\n")
+cat("AICc: ", round(aic_corrected, 2), "\n")
+cat("BIC: ", round(bic, 2), "\n")
+
+
+# Create a time index for the forecasted values
+forecast_time_index <- seq(from = end(test_weekly) + 1 / 52, 
+                           length.out = length(forecasted_values), by = 1 / 52)
+
+# Plot historical data, actual test, and forecast
+plot(train_weekly, xlim=c(1999, 2023), ylim=c(min(train_weekly), max(train_weekly)), main="Train, Test, and Forecasted Data - Weekly", xlab="Year", ylab="PM2.5 AQI Value")
+lines(test_weekly, col="red") # Test data in red
+lines(forecast_arima_weekly$mean, col="blue", type="o") # Forecasted data in blue
+legend("topleft", legend=c("Train", "Test", "Forecast"), fill=c("black", "red", "blue"))
+
+
+comparison_df <- data.frame(
+  Date = time(test_weekly),
+  Actual = as.vector(test_weekly),
+  Forecasted = as.vector(forecast_arima_weekly$mean)
+)
+print(comparison_df)
+```
+```{r}
+summary(arima_model_weekly)
+```
+
+```{r}
+# Assuming your residuals are stored in a variable called "residuals"
+shapiro_test_result <- shapiro.test(arima_model_weekly$residuals)
+
+# Print the test result
+print(shapiro_test_result)
+
+# Check the p-value
+if (shapiro_test_result$p.value < 0.05) {
+  cat("The residuals are not normally distributed (p-value:", shapiro_test_result$p.value, ")\n")
+} else {
+  cat("The residuals appear to be normally distributed (p-value:", shapiro_test_result$p.value, ")\n")
+}
+```
+
+
+
+
+
 #### ARIMA model using auto.arima() - Monthly
+
 ```{r}
 # Convert monthly data to a time series object
-pm2_5_monthly_ts <- ts(pm2_5_monthly["19990131/20230811"], start = c(1999, 1), frequency = 12)
+# pm2_5_monthly_ts <- ts(pm2_5_monthly["19990131/20230811"], start = c(1999, 1), frequency = 12)
+
+y_values_monthly <- train_monthly
+optimal_lambda <- BoxCox.lambda(y_values_monthly)
+
+# Apply the Box-Cox transformation
+transformed_data_monthly <- if (optimal_lambda != 0) {
+  (y_values_monthly^optimal_lambda - 1) / optimal_lambda
+} else {
+  log(y_values_monthly)
+}
 
 # Check stationarity, perform differencing if needed
 kpss_test_result <- kpss.test(pm2_5_monthly_ts)
@@ -463,11 +655,69 @@ if (kpss_test_result$p.value < 0.05 || adf_test_result$p.value < 0.05) {
   pm2_5_monthly_diff <- pm2_5_monthly_ts
 }
 
+# Check stationarity, perform differencing if needed
+kpss_test_result <- kpss.test(transformed_data_monthly)
+adf_test_result <- adf.test(transformed_data_monthly)
+
+if (kpss_test_result$p.value < 0.05 || adf_test_result$p.value < 0.05) {
+  pm2_5_monthly_diff <- diff(transformed_data_monthly)
+  
+  # Check stationarity after first differencing
+  kpss_test_result_diff <- kpss.test(pm2_5_monthly_diff)
+  adf_test_result_diff <- adf.test(pm2_5_monthly_diff)
+  
+  if (kpss_test_result_diff$p.value < 0.05 || adf_test_result_diff$p.value < 0.05) {
+    # If still non-stationary, apply second-order differencing
+    pm2_5_monthly_diff <- diff(pm2_5_monthly_diff)
+    
+    print("First and Second Order Differencing was performed")
+  }
+} else {
+  pm2_5_monthly_diff <- transformed_data_monthly
+  print("First Order Differencing was performed")
+}
+
+
 # Fit ARIMA model using auto.arima()
-arima_model_monthly <- auto.arima(pm2_5_monthly_diff)
+arima_model_monthly <- auto.arima(pm2_5_monthly_diff, seasonal = TRUE)
 
 # Forecast using ARIMA model
+h <- length(test_monthly)
 forecast_arima_monthly <- forecast(arima_model_monthly, h = h)
-plot(forecast_arima_monthly)
+
+original_scale_forecasts_monthly <- InvBoxCox(forecast_arima_monthly$mean, lambda = optimal_lambda)
+
+print(cat("Optimal Lambda Value:", optimal_lambda, "\n"))
+
+# Plot the original data
+original_scale_forecasts_monthly <- original_scale_forecasts_monthly * 100
+plot(train_monthly, main = "Original Data and Forecasts")
+lines(original_scale_forecasts_monthly, col = "blue")  # Add forecast line in blue
+
+# Add legend
+legend("topleft", legend = c("Original Data", "Forecasts"), col = c("black", "blue"), lwd = 1)
+
+```
+```{r}
+
+checkresiduals(arima_model_monthly)
+#Ljung-Box test .05179
+
+plot(pm2_5_monthly_diff, xlim=c(1999, 2023), ylim=c(min(pm2_5_monthly_diff), max(pm2_5_monthly_diff)), main="Train, Test, and Forecasted Data - Monthly", xlab="Year", ylab="PM2.5 AQI Value")
+lines(test_monthly, col="red") # Test data in red
+lines(original_scale_forecasts_monthly, col="blue", type="o") # Forecasted data in blue
+legend("topleft", legend=c("Train", "Test", "Forecast"), fill=c("black", "red", "blue"))
+
+mae <- mean(abs(test_monthly - original_scale_forecasts_monthly))
+print(cat("Mean Absolute Error (MAE):", round(mae, 2), "\n"))
+#Mean Absolute Error (MAE): 9.31 
+
+comparison_df <- data.frame(
+  Date = time(test_monthly),
+  Actual = as.vector(test_monthly),
+  Forecasted = as.vector(original_scale_forecasts_monthly)
+)
+print(comparison_df)
+
 ```
 
