@@ -534,16 +534,10 @@ cat("KPSS: ", round(kpss_test_result$p.value, 2), "\n")
 cat("ADF: ", round(adf_test_result$p.value, 2), "\n")
 
 # Fit ARIMA model using auto.arima()
-# Find appropriate values for d and D using ndiffs and nsdiffs
-# d <- ndiffs(train_weekly_diff)
-# D <- nsdiffs(train_weekly_diff)
-
-# Fit ARIMA model using auto.arima() with seasonal components and previously found d and D
 arima_model_weekly <- auto.arima(train_weekly, seasonal = TRUE, stepwise = FALSE,
-                                 approximation = FALSE, trace = FALSE, lambda = "auto",
+                                 trace = FALSE,
                                  start.p = 1, max.p = 4,
-                                 start.q = 2, max.q = 5, 
-                                 d=0)
+                                 start.q = 2, max.q = 5)
 
 # auto.arima(pm2_5_weekly_diff, lambda = "auto", seasonal=TRUE, )
 
@@ -556,9 +550,6 @@ plot(forecast_arima_weekly, main = "PM 2.5 AQI Forecast - sARIMA",
          xlab = "Week", ylab = "PM 2.5 AQI")
 lines(test_weekly)
 
-```
-```{r}
-forecast_arima_weekly
 ```
 
 ```{r}
@@ -629,95 +620,6 @@ if (shapiro_test_result$p.value < 0.05) {
 
 
 
-#### ARIMA model using auto.arima() - Monthly
-
-```{r}
-# Convert monthly data to a time series object
-# pm2_5_monthly_ts <- ts(pm2_5_monthly["19990131/20230811"], start = c(1999, 1), frequency = 12)
-
-y_values_monthly <- train_monthly
-optimal_lambda <- BoxCox.lambda(y_values_monthly)
-
-# Apply the Box-Cox transformation
-transformed_data_monthly <- if (optimal_lambda != 0) {
-  (y_values_monthly^optimal_lambda - 1) / optimal_lambda
-} else {
-  log(y_values_monthly)
-}
-
-# Check stationarity, perform differencing if needed
-kpss_test_result <- kpss.test(pm2_5_monthly_ts)
-adf_test_result <- adf.test(pm2_5_monthly_ts)
-
-if (kpss_test_result$p.value < 0.05 || adf_test_result$p.value < 0.05) {
-  pm2_5_monthly_diff <- diff(pm2_5_monthly_ts)
-} else {
-  pm2_5_monthly_diff <- pm2_5_monthly_ts
-}
-
-# Check stationarity, perform differencing if needed
-kpss_test_result <- kpss.test(transformed_data_monthly)
-adf_test_result <- adf.test(transformed_data_monthly)
-
-if (kpss_test_result$p.value < 0.05 || adf_test_result$p.value < 0.05) {
-  pm2_5_monthly_diff <- diff(transformed_data_monthly)
-  
-  # Check stationarity after first differencing
-  kpss_test_result_diff <- kpss.test(pm2_5_monthly_diff)
-  adf_test_result_diff <- adf.test(pm2_5_monthly_diff)
-  
-  if (kpss_test_result_diff$p.value < 0.05 || adf_test_result_diff$p.value < 0.05) {
-    # If still non-stationary, apply second-order differencing
-    pm2_5_monthly_diff <- diff(pm2_5_monthly_diff)
-    
-    print("First and Second Order Differencing was performed")
-  }
-} else {
-  pm2_5_monthly_diff <- transformed_data_monthly
-  print("First Order Differencing was performed")
-}
 
 
-# Fit ARIMA model using auto.arima()
-arima_model_monthly <- auto.arima(pm2_5_monthly_diff, seasonal = TRUE)
-
-# Forecast using ARIMA model
-h <- length(test_monthly)
-forecast_arima_monthly <- forecast(arima_model_monthly, h = h)
-
-original_scale_forecasts_monthly <- InvBoxCox(forecast_arima_monthly$mean, lambda = optimal_lambda)
-
-print(cat("Optimal Lambda Value:", optimal_lambda, "\n"))
-
-# Plot the original data
-original_scale_forecasts_monthly <- original_scale_forecasts_monthly * 100
-plot(train_monthly, main = "Original Data and Forecasts")
-lines(original_scale_forecasts_monthly, col = "blue")  # Add forecast line in blue
-
-# Add legend
-legend("topleft", legend = c("Original Data", "Forecasts"), col = c("black", "blue"), lwd = 1)
-
-```
-```{r}
-
-checkresiduals(arima_model_monthly)
-#Ljung-Box test .05179
-
-plot(pm2_5_monthly_diff, xlim=c(1999, 2023), ylim=c(min(pm2_5_monthly_diff), max(pm2_5_monthly_diff)), main="Train, Test, and Forecasted Data - Monthly", xlab="Year", ylab="PM2.5 AQI Value")
-lines(test_monthly, col="red") # Test data in red
-lines(original_scale_forecasts_monthly, col="blue", type="o") # Forecasted data in blue
-legend("topleft", legend=c("Train", "Test", "Forecast"), fill=c("black", "red", "blue"))
-
-mae <- mean(abs(test_monthly - original_scale_forecasts_monthly))
-print(cat("Mean Absolute Error (MAE):", round(mae, 2), "\n"))
-#Mean Absolute Error (MAE): 9.31 
-
-comparison_df <- data.frame(
-  Date = time(test_monthly),
-  Actual = as.vector(test_monthly),
-  Forecasted = as.vector(original_scale_forecasts_monthly)
-)
-print(comparison_df)
-
-```
 
