@@ -336,6 +336,9 @@ plot(forecast_snaive_monthly, main = "PM 2.5 AQI Forecast - SNaive",
 lines(test_monthly)
 
 # Compare the forecast with the actual test data by calculating MAPE and MSE
+mae_snaive_monthly <- mean(abs((test_monthly - forecast_snaive_monthly$mean)))
+mae_snaive_monthly
+
 # Mean Absolute Percentage Error (MAPE)
 mape_snaive <- mean(abs((test_monthly - forecast_snaive_monthly$mean)/test_monthly))
 mape_snaive
@@ -376,6 +379,8 @@ legend("topleft", legend=c("Train", "Test", "Forecast"), fill=c("black", "red", 
 mae <- mean(abs(test_weekly - forecast_tbats$mean))
 print(cat("Mean Absolute Error (MAE):", round(mae, 2), "\n"))
 #Mean Absolute Error (MAE): 9.31 
+mape <- mean(abs(test - forecast_tbats$mean)/test * 100)
+cat("Mean Absolute Percentage Error (MAPE):", round(mape, 2), "\n")
 
 comparison_df <- data.frame(
   Date = time(test_weekly),
@@ -384,6 +389,14 @@ comparison_df <- data.frame(
 )
 print(comparison_df)
 
+model_tbats$lambda
+model_tbats$alpha
+model_tbats$beta
+model_tbats$seasonal.periods
+model_tbats$p
+model_tbats$q
+model_tbats$likelihood
+model_tbats$AIC
 
 ```
 
