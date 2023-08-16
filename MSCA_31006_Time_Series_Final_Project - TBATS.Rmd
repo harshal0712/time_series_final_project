@@ -379,8 +379,10 @@ legend("topleft", legend=c("Train", "Test", "Forecast"), fill=c("black", "red", 
 mae <- mean(abs(test_weekly - forecast_tbats$mean))
 print(cat("Mean Absolute Error (MAE):", round(mae, 2), "\n"))
 #Mean Absolute Error (MAE): 9.31 
-mape <- mean(abs(test - forecast_tbats$mean)/test * 100)
-cat("Mean Absolute Percentage Error (MAPE):", round(mape, 2), "\n")
+smape_tbats_weekly <- smape(test_weekly, forecast_tbats$mean)
+print(cat("Symmetric Mean Absolute Percentage Error (MAPE):", round(smape_tbats_weekly, 4), "\n"))
+rmse <- rmse(test_weekly, forecast_tbats$mean)
+print(cat("Root Mean Squared Error (RMSE):", round(rmse, 2), "\n"))
 
 comparison_df <- data.frame(
   Date = time(test_weekly),
@@ -393,6 +395,8 @@ model_tbats$lambda
 model_tbats$alpha
 model_tbats$beta
 model_tbats$seasonal.periods
+model_tbats$ar.coefficients
+model_tbats$ma.coefficients
 model_tbats$p
 model_tbats$q
 model_tbats$likelihood
