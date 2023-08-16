@@ -340,16 +340,14 @@ eacf(train_weekly)
 # Forecast the TBATS for (2021-01 to 2023-07)
 h <- length(test_weekly)
 
+
 model_sarima_weekly <- auto.arima(train_weekly, 
                                   seasonal = TRUE, 
-                                  stepwise = FALSE, #stepwise = TRUE,
-                                  trace = FALSE,
-                                  #m=52,
-                                  #d=None,
-                                  #D=1, # order of seasonal differencing
                                   lambda="auto",
-                                  start.p = 1, max.p = 3,
-                                  start.q = 2, max.q = 4)
+                                  start.p = 1, 
+                                  max.p = 3,
+                                  start.q = 2, 
+                                  max.q = 4)
 
 forecast_sarima_weekly <- forecast(model_sarima_weekly, h)
 plot(forecast_sarima_weekly)
